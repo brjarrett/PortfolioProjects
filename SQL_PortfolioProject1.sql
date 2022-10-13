@@ -77,7 +77,7 @@ ORDER BY DeathCountPopulation desc
 
 -- continents with highest death count per population
 
-Select location, MAX(cast(total_deaths AS int)) AS TotalDeathCount, Max((total_deaths/population)) AS DeathCountPopulation
+Select location, MAX(cast(total_deaths AS int)) AS TotalDeathCount, Max(Cast(total_deaths AS int)/population) AS DeathCountPopulation
 FROM PortfolioProject..CovidDeaths
 -- WHERE location LIKE '%states%'
 WHERE continent is NULL -- this should be correct, but new entries added for income...
@@ -194,3 +194,66 @@ WHERE dea.continent is not null
 --Can select data from our view
 Select *
 From PercentPopulationVaccinated
+
+-- look at cardiovascular death rate
+
+Select location, MAX(cardiovasc_death_rate) as total_cardiac_d_rate
+From PortfolioProject..CovidVaccinations
+Group by location
+Order by total_cardiac_d_rate desc
+
+
+-- Is there a correlation between a countries cardiovascular death rate (covids deaths/population) and covid 19 morbility?  Use Peasrson's correlation to determine if any correlation 
+-- ('zero' = no correlation, "one" = perfect correlation, "minus one" perfect negative correlation)
+
+DROP TABLE if exists #DieseasevsCovidMortality
+CREATE TABLE #DieseasevsCovidMortality
+(
+Continent nvarchar(255),
+Location nvarchar(255),
+CardiacDeathRateBurden numeric(18,2), -- specify percision (p) and scale (s) (p,s) 
+CovidDeathperPopulation numeric(18,6),
+PercentDiabetes numeric(18,2),
+LifeExpectancy numeric(18,2)
+)
+
+INSERT INTO #DieseasevsCovidMortality
+Select vac.continent, vac.location, MAX(vac.cardiovasc_death_rate) AS CardiacDeathRateBurden, MAX(CAST(dea.total_deaths as int)/dea.population)*100 AS CovidDeathperPopulation
+, MAX(vac.diabetes_prevalence) AS PercentDiabetes, MAX(vac.life_expectancy) AS LifeExpectancy
+FROM PortfolioProject..CovidDeaths dea
+JOIN PortfolioProject..CovidVaccinations vac
+	ON dea.location = vac.location
+--	AND dea.date = vac.date
+WHERE dea.continent is not null AND dea.total_deaths is not null
+GROUP BY vac.continent, vac.location
+--ORDER BY CovidDeathperPopulation desc
+
+
+-- check to see if table was made correctly
+Select *
+From #DieseasevsCovidMortality
+ORDER BY CovidDeathperPopulation desc
+
+-- now calculate Pearson's (population cardiac burden vs covid deaths)
+SELECT (AVG(CardiacDeathRateBurden*CovidDeathperPopulation)-(AVG(CardiacDeathRateBurden)*AVG(CovidDeathperPopulation)))/(STDEVP(CardiacDeathRateBurden)*STDEVP(CovidDeathperPopulation)) AS 'Pearsons r Cardiac Deaths'
+FROM #DieseasevsCovidMortality
+
+-- now calculate Pearson's (population diabetes burden vs covid deaths)
+SELECT (AVG(PercentDiabetes*CovidDeathperPopulation)-(AVG(PercentDiabetes)*AVG(CovidDeathperPopulation)))/(STDEVP(PercentDiabetes)*STDEVP(CovidDeathperPopulation)) AS 'Pearsons r Diabetes'
+FROM #DieseasevsCovidMortality
+
+-- now calculate Pearson's (population age vs covid deaths) hear look at life expectancy as higher life expectancy will correlate to older population
+SELECT (AVG(LifeExpectancy*CovidDeathperPopulation)-(AVG(LifeExpectancy)*AVG(CovidDeathperPopulation)))/(STDEVP(LifeExpectancy)*STDEVP(CovidDeathperPopulation)) AS 'Pearsons r Life Expectancy (Population Age)'
+FROM #DieseasevsCovidMortality
+
+-- create second view, this time for the disease/age vs covid deaths
+
+Create View DiseasevsCovidDeaths as
+Select vac.continent, vac.location, MAX(vac.cardiovasc_death_rate) AS CardiacDeathRateBurden, MAX(CAST(dea.total_deaths as int)/dea.population)*100 AS CovidDeathperPopulation
+, MAX(vac.diabetes_prevalence) AS PercentDiabetes, MAX(vac.life_expectancy) AS LifeExpectancy
+FROM PortfolioProject..CovidDeaths dea
+JOIN PortfolioProject..CovidVaccinations vac
+	ON dea.location = vac.location
+--	AND dea.date = vac.date
+WHERE dea.continent is not null AND dea.total_deaths is not null
+GROUP BY vac.continent, vac.location
