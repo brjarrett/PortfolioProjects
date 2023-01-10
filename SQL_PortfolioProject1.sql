@@ -3,9 +3,6 @@ FROM PortfolioProject..CovidDeaths
 WHERE continent is not NULL -- remove the higher grouping by continent or world
 ORDER BY 3,4
 
---Select *
---FROM PortfolioProject..CovidVaccinations
---ORDER BY 3,4
 
 --Selecting data to be used
 
@@ -97,7 +94,7 @@ order by 1,2
 
 
 -- total population vs vaccinations
--- cannot use int, must use bigint.  While all your sizes can fit into INT (up to 2^31 - 1), their SUM cannot.  So use bigint instead!  If you use int this error is thrown: Arithmetic overflow error converting expression to data type int.
+-- cannot use int, must use bigint.  While all sizes can fit into INT (up to 2^31 - 1), their SUM cannot.  So use bigint instead!  If you use INT this error is thrown: Arithmetic overflow error converting expression to data type int.
 -- Warning: Null value is eliminated by an aggregate or other SET operation. 
 
 Select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
